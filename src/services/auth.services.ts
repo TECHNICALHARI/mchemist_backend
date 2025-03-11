@@ -80,20 +80,6 @@ const authServices = {
     const { password, ...sendUser } = newUser.toObject();
     return { user: sendUser };
   },
-  addAdminUser: async (body: IRegisterInput) => {
-    const user = await User.findOne({ email: body.email });
-    if (user) {
-      throw new ApiError(
-        statusCodes.BAD_REQUEST,
-        allMessages.auth.userAllreadyExist
-      );
-    }
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-    const newUser = new User({ ...body, password: hashedPassword });
-    await newUser.save();
-    const { password, ...sendUser } = newUser.toObject();
-    return { user: sendUser };
-  },
 };
 
 export default authServices;

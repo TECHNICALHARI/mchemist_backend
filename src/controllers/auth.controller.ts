@@ -21,9 +21,4 @@ export const registerAdmin = asyncHandler(
     successResponse(res, user, allMessages.success.created);
   }
 );
-export const addAdminUser = asyncHandler(
-  async (req: Request, res: Response) => {
-    const user = await authServices.addAdminUser(req.body);
-    successResponse(res, user, allMessages.success.created);
-  }
-);
+

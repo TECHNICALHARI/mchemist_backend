@@ -4,6 +4,7 @@ import { PERMISSIONS } from "./permissions";
 export const seedRoles = async () => {
   const roles = [
     { name: "admin", permissions: Object.values(PERMISSIONS) },
+    { name: "manager", permissions: Object.values(PERMISSIONS) },
     { name: "client", permissions: [] },
   ];
 
