@@ -1,70 +1,94 @@
-// import mongoose from "mongoose";
-// import { ProductInputTypes, productSchema } from "../validations/product";
-// import { Product } from "../models/product.model";
-// import { Response } from "express";
-// import slugify from "slugify";
-// import multer from "multer";
-// import { ApiError } from "../utils/ApiError";
-// import { statusCodes } from "../utils/statusCodes";
-// import allMessages from "../utils/allMessages";
-// import { fileType } from "../types/types";
-// import { uploadMultipleToCloudinary } from "../utils/cloudinary";
+import mongoose from "mongoose";
+import { ProductInputTypes, productSchema } from "../validations/product";
+import { Product } from "../models/product.model";
+import { ApiError } from "../utils/ApiError";
+import { statusCodes } from "../utils/statusCodes";
+import allMessages from "../utils/allMessages";
+import { ICategory } from "../models/category.model";
 
-// const productServices = {
-//   addProduct: async (data: ProductInputTypes, files: fileType, userId: mongoose.Types.ObjectId) => {
-//     const allreadyExist = await Product.findOne({ name: data.name });
-//     if (allreadyExist) {
-//       throw new ApiError(
-//         statusCodes.BAD_REQUEST,
-//         allMessages.error.alreadyExists
-//       );
-//     }
-//     const imageUrlsFiles = files.imageUrls || [];
-//     const thumbnailFiles = files.thumbnail || [];
-//     if (thumbnailFiles?.length === 0) {
-//       throw new ApiError(
-//         statusCodes.BAD_REQUEST,
-//         "Thumbnail image is required."
-//       );
-//     }
-//     if (imageUrlsFiles.length === 0) {
-//       throw new ApiError(
-//         statusCodes.BAD_REQUEST,
-//         "At least one image is required."
-//       );
-//     }
-//     let slug = slugify(data.name, { lower: true, strict: true });
-//     let uniqueSlug = slug;
-//     let counter = 1;
-//     while (await Product.findOne({ slug: uniqueSlug })) {
-//       uniqueSlug = `${slug}-${counter}`;
-//       counter++;
-//     }
-//     let uploadedImages = await uploadMultipleToCloudinary(files, "products");
-//     if (!uploadedImages?.thumbnail || uploadedImages.thumbnail.length === 0) {
-//       throw new ApiError(statusCodes.BAD_REQUEST, "Thumbnail upload failed.");
-//     }
-//     if (!uploadedImages?.imageUrls || uploadedImages.imageUrls.length === 0) {
-//       throw new ApiError(
-//         statusCodes.BAD_REQUEST,
-//         "Product images upload failed."
-//       );
-//     }
-//     const parsedData = {
-//       ...data,
-//       slug: uniqueSlug,
-//       mrp: Number(data.mrp),
-//       saleRate: Number(data.saleRate),
-//       countInStock: Number(data.countInStock),
-//       imageUrls: uploadedImages.imageUrls,
-//       thumbnail: uploadedImages.thumbnail[0],
-//       createdBy: userId
-//     };
-//     const validatedData = productSchema.parse(parsedData)
-//     const product = await Product.create(validatedData);
-//     const { createdBy, ...sendProduct } = product.toObject();
-//     return sendProduct;
-//   },
-// };
+const productServices = {
+  addManyProduct: async (
+    data: ProductInputTypes[],
+    userId: mongoose.Types.ObjectId
+  ) => {
+    const productName = data.map((item) => item.name);
+    const existingProductName = await Product.find({
+      name: { $in: productName },
+    });
 
-// export default productServices;
+    if (existingProductName.length > 0) {
+      throw new ApiError(
+        statusCodes.BAD_REQUEST,
+        `${allMessages.error.alreadyExists}: ${existingProductName
+          .map((item) => item.name)
+          .join(", ")}`
+      );
+    }
+
+    const parsedData = data.map((item) => ({
+      ...item,
+      createdBy: userId,
+    }));
+
+    const products = await Product.insertMany(parsedData);
+    const sendProduct = products.map(({ name, category, price }) => ({
+      name,
+      category,
+      price,
+    }));
+    return sendProduct;
+  },
+  addProduct: async (
+    data: ProductInputTypes,
+    userId: mongoose.Types.ObjectId
+  ) => {
+    const allreadyExist = await Product.findOne({ name: data.name });
+    if (allreadyExist) {
+      throw new ApiError(
+        statusCodes.BAD_REQUEST,
+        allMessages.error.alreadyExists
+      );
+    }
+    const parsedData = {
+      ...data,
+      createdBy: userId,
+    };
+    const validatedData = productSchema.parse(parsedData);
+    const product = await Product.create(validatedData);
+    const { createdBy, ...sendProduct } = product.toObject();
+    return sendProduct;
+  },
+  getProduct: async (search: string, limit: number, page: number) => {
+    const pageNumber = Math.max(1, Number(page));
+    const limitNumber = Math.max(1, Number(limit));
+    const filter: any = {};
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+    const skip = (pageNumber - 1) * limitNumber;
+    const [products, count] = await Promise.all([
+      Product.find(filter)
+        .skip(skip)
+        .limit(limitNumber)
+        .select("name category price _id")
+        .populate({ path: "category", select: "name" }),
+      Product.countDocuments(filter),
+    ]);
+
+    const formattedProducts = products.map((product) => {
+      const categoryName = (product.category as ICategory)?.name || null;
+      return {
+        ...product.toObject(),
+        category: categoryName,
+      };
+    });
+    return {
+      product: formattedProducts,
+      limit: limitNumber,
+      page: pageNumber,
+      total: count,
+    };
+  },
+};
+
+export default productServices;

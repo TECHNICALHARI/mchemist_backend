@@ -23,6 +23,7 @@ export const userRegisterSchema = z.object({
   name: z.string().min(3),
   email: z.string().email(),
   password: z.string().min(8),
+  otp: z.string().length(6).optional(),
   phone: z
     .string()
     .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format")

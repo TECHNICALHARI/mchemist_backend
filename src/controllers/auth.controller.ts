@@ -22,3 +22,14 @@ export const registerAdmin = asyncHandler(
   }
 );
 
+
+
+export const initiateRegistration = asyncHandler(async (req: Request, res: Response) => {
+  const response = await authServices.initiateRegistration(req.body);
+  successResponse(res, response, "OTP sent successfully");
+});
+
+export const verifyAndRegister = asyncHandler(async (req: Request, res: Response) => {
+  const response = await authServices.verifyAndRegister(req.body);
+  successResponse(res, response, "User registered successfully");
+});
